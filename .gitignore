@@ -25,3 +25,31 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+##C
+# Object files
+*.o
+*.lo
+*.slo
+
+# Libraries
+*.lib
+*.a
+*.lai
+*.la
+*.a
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+
+#AR Specific
+ARDrone_SDK_2_0/ARDroneLib/Soft/Build/targets_versions/
