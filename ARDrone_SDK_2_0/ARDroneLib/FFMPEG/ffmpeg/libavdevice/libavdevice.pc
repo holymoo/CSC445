@@ -1,7 +1,7 @@
 prefix=/usr/local
 exec_prefix=${prefix}
-libdir=/home/andrew/445/ARDrone_SDK_2_0/ARDroneLib/FFMPEG/ffmpeg/../../Soft/Build/targets_versions//ffmpeg_i686_PROD_MODE_Linux_3.2.0-29-generic-pae_GNU_Linux_usrbingcc_4.6.3
-includedir=/home/andrew/445/ARDrone_SDK_2_0/ARDroneLib/FFMPEG/ffmpeg/../Includes
+libdir=/home/andrew/CSC445/ARDrone_SDK_2_0/ARDroneLib/FFMPEG/ffmpeg/../../Soft/Build/targets_versions//ffmpeg_i686_PROD_MODE_Linux_3.2.0-29-generic-pae_GNU_Linux_usrbingcc_4.6.3
+includedir=/home/andrew/CSC445/ARDrone_SDK_2_0/ARDroneLib/FFMPEG/ffmpeg/../Includes
 
 Name: libavdevice
 Description: FFmpeg device handling library
