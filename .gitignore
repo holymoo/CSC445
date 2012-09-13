@@ -56,3 +56,5 @@ ARDrone_SDK_2_0/ARDroneLib/Soft/Build/targets_versions/
 
 # Random OSX Files
 .DS_Store
+
+.swo
