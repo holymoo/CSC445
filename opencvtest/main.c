@@ -1,0 +1,68 @@
+//////////////////////////////////
+//
+// Filename:    main.c
+// Author:      Grant Byrne
+// Date:        9.18.2012
+// Description: Simple stripped down openCV program used for the purposes of
+//              getting started with openCV.
+//
+//////////////////////////////////
+
+// To Build This:
+/*
+gcc -ggdb `pkg-config --cflags opencv` main.c -o main `pkg-config --libs opencv`
+*/
+
+
+#include "opencv2/video/tracking.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc_c.h"
+#include <time.h>
+#include <stdio.h>
+#include <ctype.h>
+
+int main(int argc, char** argv)
+{
+    // Connects up to the first available camera
+    CvCapture* capture = cvCaptureFromCAM( 0 );
+
+    // If a connection is established to a camera,
+    // actually perform the opencv operations
+    if( capture )
+    {
+        // Create a window to display the opencv data
+        cvNamedWindow( "Camera", 1 );
+
+        while(1)
+        {
+            // Pull a frame from the camera
+            IplImage* image = cvQueryFrame( capture );
+            
+            // If OpenCV was not able to get an image for some reason,
+            // then throw an error and exit
+            if( !image )
+            {
+              printf("Lost connection to camera\n");
+              break;
+            }
+
+            // If an image was successfully gathered,
+            // then draw it on the screen
+            cvShowImage( "Camera", image );
+
+            // Exits if the user presses the Escape key
+            if( cvWaitKey(10) >= 0 )
+                break;
+        }
+
+        // Clean up the memory associated with OpenCV
+        cvReleaseCapture( &capture );
+        cvDestroyWindow( "Camera" );
+    }
+    else
+    {
+      printf("Could not establish connection to camera");
+    }
+
+    return 0;
+}
