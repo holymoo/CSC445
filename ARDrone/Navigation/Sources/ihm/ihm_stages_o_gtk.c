@@ -56,6 +56,10 @@
 
 #include <video_encapsulation.h>
 
+// Added for OpenCV Support
+#include "cv.h"
+#include "highgui.h" // if you want to display images with OpenCV functions
+
 extern GtkWidget *ihm_ImageWin, *ihm_ImageEntry[9], *ihm_ImageDA, *ihm_VideoStream_VBox;
 /* For fullscreen video display */
 extern GtkWindow *fullscreen_window;
@@ -105,9 +109,45 @@ extern float DEBUG_bitrate;
 extern float DEBUG_latency;
 extern int DEBUG_isTcp;
 
+// Means by which OpenCV connects to camera
+CvCapture* betaImage = 0;
+
+// Name:        ipl_image_from_data
+// Parameters:  data
+// Returns:     an opencv format image
+// Description: Converts the video data coming from the drone 
+//              into something open cv can use
+IplImage *ipl_image_from_data(uint8_t* data)
+{
+  IplImage *currframe;
+  IplImage *dst;
+ 
+  currframe = cvCreateImage(cvSize(640,360), IPL_DEPTH_8U, 3);
+  dst = cvCreateImage(cvSize(640,360), IPL_DEPTH_8U, 3);
+ 
+  currframe->imageData = data;
+  cvCvtColor(currframe, dst, CV_BGR2RGB);
+  cvReleaseImage(&currframe);
+  return dst;
+}
 
 C_RESULT output_gtk_stage_open(vp_stages_gtk_config_t *cfg)//, vp_api_io_data_t *in, vp_api_io_data_t *out)
 {
+    /////
+    // Create an opencv window
+    /////
+
+    // Connect the the first available camera
+    betaImage = cvCaptureFromCAM( 0 );
+
+    if(!betaImage)
+    {
+        printf("Could not interface with camera \n");
+    }
+
+    // Create a window to to display the opencv data
+    cvNamedWindow( "BetaCamera", 1 );
+
     return (SUCCESS);
 }
 
@@ -118,170 +158,21 @@ void destroy_image_callback(GtkWidget *widget, gpointer data) {
 char video_information_buffer[1024];
 int video_information_buffer_index = 0;
 
-C_RESULT output_gtk_stage_transform(vp_stages_gtk_config_t *cfg, vp_api_io_data_t *in, vp_api_io_data_t *out) {
-    
+C_RESULT output_gtk_stage_transform(vp_stages_gtk_config_t *cfg, vp_api_io_data_t *in, vp_api_io_data_t *out) 
+{
 
-    if (!ihm_is_initialized) return SUCCESS;
-    if (ihm_ImageWin == NULL) return SUCCESS;
-    if (image_vision_window_view != WINDOW_VISIBLE) return SUCCESS;
+    // Pull a frame from the camera
+    // IplImage* cvImage = cvCreateImage(cvSize(640,360), IPL_DEPTH_8U, 3);
+    IplImage *cvImage = ipl_image_from_data( (uint8_t*)in->buffers[0] );
 
-
-    gdk_threads_enter(); //http://library.gnome.org/devel/gdk/stable/gdk-Threads.html
-    static struct timeval tvPrev = {0, 0}, tvNow = {0, 0};
-    static int nbFramesForCalc = 1;
-#define CALCULATE_EVERY_X_FRAMES 10
-    if (0 == --nbFramesForCalc)
-      {
-        nbFramesForCalc = CALCULATE_EVERY_X_FRAMES;
-        tvPrev.tv_sec = tvNow.tv_sec;
-        tvPrev.tv_usec = tvNow.tv_usec;
-        gettimeofday(&tvNow, NULL);
-        if (0 != tvPrev.tv_sec) // Avoid first time calculation
-          {
-            float timeDiffMillis = ((tvNow.tv_sec - tvPrev.tv_sec) * 1000.0) + ((tvNow.tv_usec - tvPrev.tv_usec) / 1000.0);
-            DEBUG_fps = (0.8 * DEBUG_fps) + (0.2 * ((1000.0 * CALCULATE_EVERY_X_FRAMES) / timeDiffMillis));
-          }
-      }
-
-    video_decoder_config_t * dec_config;
-    dec_config = (video_decoder_config_t *) cfg->last_decoded_frame_info;
-    pixbuf_width = dec_config->src_picture->width;
-    pixbuf_height = dec_config->src_picture->height;
-    pixbuf_rowstride = dec_config->rowstride;
-    pixbuf_data = (uint8_t*) in->buffers[in->indexBuffer];
-
-    if (pixbuf != NULL) {
-        g_object_unref(pixbuf);
-        pixbuf = NULL;
-    }
-
-    pixbuf = gdk_pixbuf_new_from_data(pixbuf_data,
-        GDK_COLORSPACE_RGB,
-        FALSE,
-        8,
-        pixbuf_width,
-        pixbuf_height,
-        pixbuf_rowstride,
-        NULL,
-        NULL);
-
-    if (fullscreen != NULL && fullscreen_window != NULL) {
-        if (pixbuf2 != NULL) {
-            g_object_unref(pixbuf2);
-            pixbuf2 = NULL;
-        }
-
-        pixbuf2 = gdk_pixbuf_scale_simple(pixbuf,
-            gdk_screen_get_width(fullscreen),
-            gdk_screen_get_height(fullscreen),
-            /*GDK_INTERP_HYPER*/
-            cfg->gdk_interpolation_mode);
-        /*if (fullscreen_image == NULL)
-          {
-          fullscreen_image  = (GtkImage*) gtk_image_new_from_pixbuf( pixbuf );
-          //if (fullscreen_image == NULL) { printf("Probleme.\n"); }
-          //gtk_container_add( GTK_CONTAINER( fullscreen_window ), GTK_WIDGET(fullscreen_image) );
-          gtk_fixed_put(ihm_fullScreenFixedContainer,fullscreen_image,0,0);
-          }*/
-        if (fullscreen_image != NULL) {
-            gtk_image_set_from_pixbuf(fullscreen_image, pixbuf2);
-            //gtk_widget_show_all (GTK_WIDGET(fullscreen_window));
-            gtk_widget_show(GTK_WIDGET(fullscreen_image));
-            //gtk_widget_show(ihm_fullScreenHBox);
-        }
-    } else {
-
-        if (cfg->desired_display_height != 0 && cfg->desired_display_width != 0) /* 0 and 0 means auto mode */ {
-            if (pixbuf2 != NULL) {
-                g_object_unref(pixbuf2);
-                pixbuf2 = NULL;
-            }
-
-            pixbuf2 = gdk_pixbuf_scale_simple(pixbuf,
-                cfg->desired_display_width,
-                cfg->desired_display_height,
-                cfg->gdk_interpolation_mode);
-        } else {
-            /* A copy of pixbuf is always made into pixbuf 2.
-              If pixbuf is used directly, GTK renders the video from the buffer allocated by the FFMPEG decoding stage,
-              which becomes invalid when the decoder is resetted (when a codec change occurs for example).
-              This makes GTK crash.
-              TODO : find a reliable way of rendering from the FFMPEG output buffer to avoid the data copy from pixbuf to pixbuf2
-             */
-
-            if (pixbuf2 != NULL) {
-                g_object_unref(pixbuf2);
-                pixbuf2 = NULL;
-            }
-
-            pixbuf2 = gdk_pixbuf_copy(pixbuf);
-        }
-
-        if (image == NULL && (pixbuf != NULL || pixbuf2 != NULL)) {
-            image = (GtkImage*) gtk_image_new_from_pixbuf((pixbuf2) ? (pixbuf2) : (pixbuf));
-            gtk_signal_connect(GTK_OBJECT(image), "destroy", G_CALLBACK(destroy_image_callback), NULL);
-            if (GTK_IS_WIDGET(ihm_ImageWin))
-                if (GTK_IS_WIDGET(ihm_VideoStream_VBox))
-                    gtk_container_add(GTK_CONTAINER(ihm_VideoStream_VBox), (GtkWidget*) image);
-        }
-        if (image != NULL && (pixbuf != NULL || pixbuf2 != NULL)) {
-            if (!videoPauseStatus) gtk_image_set_from_pixbuf(image, (pixbuf2) ? (pixbuf2) : (pixbuf));
-        }
-    }
-
-    /*---- Display statistics ----*/
-
-
-    float DEBUG_percentMiss = DEBUG_nbSlices * 100.0 /  DEBUG_totalSlices;
-
-
-    video_information_buffer_index =
-    			snprintf(video_information_buffer,
-					sizeof(video_information_buffer),
-					"%s - %s %dx%d\n",
-					(icc.configs[icc.last_active_socket]->protocol == VP_COM_TCP)?"TCP":(icc.configs[icc.last_active_socket]->protocol == VP_COM_UDP)?"UDP":"?",
-					/*codec*/
-							(video_stage_decoder_lastDetectedCodec == CODEC_MPEG4_AVC )?"H.264":
-							(video_stage_decoder_lastDetectedCodec == CODEC_MPEG4_VISUAL) ? "MP4":
-							(video_stage_decoder_lastDetectedCodec == CODEC_VLIB) ? "VLIB":
-							(video_stage_decoder_lastDetectedCodec == CODEC_P264) ? "P.264": "?",
-							pixbuf_width,pixbuf_height
-					);
-
-    if (video_stage_decoder_lastDetectedCodec == CODEC_MPEG4_AVC )
+    if(!cvImage)
     {
-    	video_information_buffer_index+=
-    			snprintf(video_information_buffer+video_information_buffer_index,
-						sizeof(video_information_buffer)-video_information_buffer_index,
-						"Mean missed slices :%6.3f/%2.0f (%5.1f%%)\nMissed frames : %10d\nFPS : %4.1f | Bitrate : %6.2f Kbps\nLatency : %5.1f ms | Protocol : %s",\
-							DEBUG_nbSlices,
-							DEBUG_totalSlices,
-							DEBUG_percentMiss,
-							DEBUG_missed,
-							DEBUG_fps,
-							DEBUG_bitrate,
-							DEBUG_latency,
-							(1 == DEBUG_isTcp) ? "TCP" : "UDP");
-
-    }
-    else
-    {
-    	video_information_buffer_index+=
-    	    			snprintf(video_information_buffer+video_information_buffer_index,
-    							sizeof(video_information_buffer)-video_information_buffer_index,
-    							"Missed frames : %10d\nFPS : %4.1f | Bitrate : %6.2f Kbps\nLatency : %5.1f ms | Protocol : %s",\
-    								DEBUG_missed,
-    								DEBUG_fps,
-    								DEBUG_bitrate,
-    								DEBUG_latency,
-    								(1 == DEBUG_isTcp) ? "TCP" : "UDP");
-
+        printf("Could not pull image from camera");
     }
 
-    if (video_information){
-		gtk_label_set_text((GtkLabel *)video_information,(const gchar*)video_information_buffer);
-		gtk_label_set_justify((GtkLabel *)video_information,GTK_JUSTIFY_LEFT);
-    }
+    // If an image was successfully gathered,
+    // then draw it on the screen
+    cvShowImage( "BetaCamera", cvImage );
 
     gtk_widget_show_all(ihm_ImageWin);
     gdk_threads_leave();
@@ -296,17 +187,6 @@ C_RESULT output_gtk_stage_close(vp_stages_gtk_config_t *cfg, vp_api_io_data_t *i
 
 static vp_os_mutex_t draw_trackers_update;
 /*static*/ vp_stages_draw_trackers_config_t draw_trackers_cfg = {0};
-
-/*
-void set_draw_trackers_config(vp_stages_draw_trackers_config_t* cfg) {
-    void*v;
-    vp_os_mutex_lock(&draw_trackers_update);
-    v = draw_trackers_cfg.last_decoded_frame_info;
-    vp_os_memcpy(&draw_trackers_cfg, cfg, sizeof (draw_trackers_cfg));
-    draw_trackers_cfg.last_decoded_frame_info = v;
-    vp_os_mutex_unlock(&draw_trackers_update);
-}
-*/
 
 C_RESULT draw_trackers_stage_open(vp_stages_draw_trackers_config_t *cfg, vp_api_io_data_t *in, vp_api_io_data_t *out) {
     vp_os_mutex_lock(&draw_trackers_update);

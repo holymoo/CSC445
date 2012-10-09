@@ -2047,11 +2047,6 @@ static void ihm_connectAcademy(GtkWidget *widget, gpointer data)
 
 }
 
-static void ihm_screenshot(GtkWidget *widget, gpointer data)
-{
-	ardrone_academy_navdata_screenshot();
-}
-
 void ihm_refresh(void)
 {
 	gtk_widget_set_sensitive(GTK_WIDGET(button_screenshot_pa), ardrone_academy_navdata_get_camera_state() );
@@ -2813,7 +2808,7 @@ void ihm_init()
     gtk_button_set_label((GtkButton*)button_screenshot_pa , "Screenshot");
     gtk_widget_set_sensitive(GTK_WIDGET(button_screenshot_pa), FALSE );
 
-    g_signal_connect(G_OBJECT(button_screenshot_pa), "clicked", G_CALLBACK(ihm_screenshot), (gpointer)NULL);
+    //g_signal_connect(G_OBJECT(button_screenshot_pa), "clicked", G_CALLBACK(ihm_screenshot), (gpointer)NULL);
 
     message_pa = gtk_label_new("");
 
